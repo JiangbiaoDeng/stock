@@ -12,20 +12,22 @@ import MySQLdb
 from sqlalchemy import create_engine
 from sqlalchemy.types import NVARCHAR
 from sqlalchemy import inspect
-import tushare as ts
 import pandas as pd
 import traceback
+import akshare as ak
 
 # 使用环境变量获得数据库。兼容开发模式可docker模式。
-MYSQL_HOST = os.environ.get('MYSQL_HOST') if (os.environ.get('MYSQL_HOST') != None) else "mariadb"
+MYSQL_HOST = os.environ.get('MYSQL_HOST') if (os.environ.get('MYSQL_HOST') != None) else "mysqldb"
 MYSQL_USER = os.environ.get('MYSQL_USER') if (os.environ.get('MYSQL_USER') != None) else "root"
-MYSQL_PWD = os.environ.get('MYSQL_PWD') if (os.environ.get('MYSQL_PWD') != None) else "mariadb"
+MYSQL_PWD = os.environ.get('MYSQL_PWD') if (os.environ.get('MYSQL_PWD') != None) else "mysqldb"
 MYSQL_DB = os.environ.get('MYSQL_DB') if (os.environ.get('MYSQL_DB') != None) else "stock_data"
 
 print("MYSQL_HOST :", MYSQL_HOST, ",MYSQL_USER :", MYSQL_USER, ",MYSQL_DB :", MYSQL_DB)
-MYSQL_CONN_URL = "mysql+mysqldb://" + MYSQL_USER + ":" + MYSQL_PWD + "@" + MYSQL_HOST + ":3306/" + MYSQL_DB + "?charset=utf8"
+MYSQL_CONN_URL = "mysql+mysqldb://" + MYSQL_USER + ":" + MYSQL_PWD + "@" + MYSQL_HOST + ":3306/" + MYSQL_DB + "?charset=utf8mb4"
 print("MYSQL_CONN_URL :", MYSQL_CONN_URL)
 
+__version__ = "2.0.0"
+# 每次发布时候更新。
 
 def engine():
     engine = create_engine(
@@ -33,14 +35,12 @@ def engine():
         encoding='utf8', convert_unicode=True)
     return engine
 
-
 def engine_to_db(to_db):
-    MYSQL_CONN_URL_NEW = "mysql+mysqldb://" + MYSQL_USER + ":" + MYSQL_PWD + "@" + MYSQL_HOST + ":3306/" + to_db + "?charset=utf8"
+    MYSQL_CONN_URL_NEW = "mysql+mysqldb://" + MYSQL_USER + ":" + MYSQL_PWD + "@" + MYSQL_HOST + ":3306/" + to_db + "?charset=utf8mb4"
     engine = create_engine(
         MYSQL_CONN_URL_NEW,
         encoding='utf8', convert_unicode=True)
     return engine
-
 
 # 通过数据库链接 engine。
 def conn():
@@ -74,14 +74,20 @@ def insert_other_db(to_db, data, table_name, write_index, primary_keys):
     print(col_name_list)
     data.to_sql(name=table_name, con=engine_mysql, schema=to_db, if_exists='append',
                 dtype={col_name: NVARCHAR(length=255) for col_name in col_name_list}, index=write_index)
+
+    # print(insp.get_pk_constraint(table_name))
+    # print()
+    # print(type(insp))
     # 判断是否存在主键
-    if insp.get_primary_keys(table_name) == []:
+    if insp.get_pk_constraint(table_name)['constrained_columns'] == []:
         with engine_mysql.connect() as con:
             # 执行数据库插入数据。
             try:
                 con.execute('ALTER TABLE `%s` ADD PRIMARY KEY (%s);' % (table_name, primary_keys))
             except  Exception as e:
                 print("################## ADD PRIMARY KEY ERROR :", e)
+
+
 
 
 # 插入数据。
@@ -125,7 +131,12 @@ def select_count(sql, params=()):
 # 通用函数。获得日期参数。
 def run_with_args(run_fun):
     tmp_datetime_show = datetime.datetime.now()  # 修改成默认是当日执行 + datetime.timedelta()
+    tmp_hour_int = int(tmp_datetime_show.strftime("%H"))
+    if tmp_hour_int < 12 :
+        # 判断如果是每天 中午 12 点之前运行，跑昨天的数据。
+        tmp_datetime_show = (tmp_datetime_show + datetime.timedelta(days=-1))
     tmp_datetime_str = tmp_datetime_show.strftime("%Y-%m-%d %H:%M:%S.%f")
+    print("\n######################### hour_int %d " % tmp_hour_int)
     str_db = "MYSQL_HOST :" + MYSQL_HOST + ", MYSQL_USER :" + MYSQL_USER + ", MYSQL_DB :" + MYSQL_DB
     print("\n######################### " + str_db + "  ######################### ")
     print("\n######################### begin run %s %s  #########################" % (run_fun, tmp_datetime_str))
@@ -186,9 +197,12 @@ def get_hist_data_cache(code, date_start, date_end):
         return pd.read_pickle(cache_file, compression="gzip")
     else:
         print("######### get data, write cache #########", code, date_start, date_end)
-        stock = ts.get_hist_data(code, start=date_start, end=date_end)
+        stock = ak.stock_zh_a_hist(symbol= code, start_date=date_start, end_date=date_end, adjust="")
+        stock.columns = ['date', 'open', 'close', 'high', 'low', 'volume', 'amount', 'amplitude', 'quote_change',
+                         'ups_downs', 'turnover']
         if stock is None:
             return None
         stock = stock.sort_index(0)  # 将数据按照日期排序下。
+        print(stock)
         stock.to_pickle(cache_file, compression="gzip")
         return stock

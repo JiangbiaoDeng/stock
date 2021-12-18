@@ -1,24 +1,29 @@
-### pythonstock V1 项目简介
+### pythonstock V2 项目简介
 
 
 **特别说明：股市有风险投资需谨慎，本项目只能用于Python代码学习，股票分析，投资失败亏钱不负责，不算BUG。**
 
 ```
-PythonStock V1 是基于Python的pandas，tushare，bokeh，tornado，stockstats，ta-lib等框架开发的全栈股票系统。
-1）可以直接使用docker直接本地部署运行，整个项目在docker hub上压缩后200BM，本地占用500MB磁盘空间。
-2）使用Docker解决了Python库安装问题，使用Mariadb（MySQL）存储数据。借助tushare抓取数据（老API，后续使用tushare pro开发）
-3）使用corn做定时任务，每天进行数据抓取计算，每天18点开始进行数据计算，计算当日数据，使用300天数据进行计算，大约需要15分钟计算完毕。
+项目地址：https://github.com/pythonstock/stock
+PythonStock V2 是基于Python的pandas，akshare，bokeh，tornado，stockstats，ta-lib等框架开发的全栈股票系统。
+项目创建于2017年7月17日，每月不定期更新。
+1）可以直接使用docker直接本地部署运行，整个项目在docker hub上压缩后200MB，本地占用500MB磁盘空间。
+2）使用Docker解决了Python库安装问题，使用Mariadb（MySQL）存储数据。借助akshare抓取数据。
+3）使用cron做定时任务，每天进行数据抓取计算，每天18点开始进行数据计算，计算当日数据，使用300天数据进行计算，大约需要15分钟计算完毕。
 4）股票数据接口防止被封，按天进行数据缓存，储存最近3天数据，每天定时清除，同时使用read_pickle to_pickle 的gzip压缩模式存储。
-5）使用tornado开发web系统，支持股票数据，沪深300成份股，中证500成份股，龙虎榜数据，每日股票数据，每日大盘指数行情等
+5）使用tornado开发web系统，支持每日股票数据-东财，龙虎榜-个股上榜-新浪，数据中心-大宗交易行情等。
 6）数据展示系统，是通用数据展示系统，配置字典模板之后，页面自动加载数据，并完成数据展示，后续自己开发的指标数据可以加入进去。
 7）增加曲线数据分析，在查看股票中，可以直接跳转到东方财富页面查看相关信息，点击指标之后使用Bokeh将多达 17 个指标的数据绘图，进行图表展示。
+8) 2.0 最大的更新在于替换tushare库（因部分库不能使用），使用akshare进行数据抓取。
 ```
 
- ![image](https://raw.githubusercontent.com/pythonstock/stock/master/web/static/img/stock-show-01.jpg)
- 
+2.0 说明
+ ![image](https://raw.githubusercontent.com/pythonstock/stock/master/web/static/img/stock2-001.png)
+ ![image](https://raw.githubusercontent.com/pythonstock/stock/master/web/static/img/stock2-002.png)
+
  bokeh 绘图指标数据：
  
-  ![image](https://raw.githubusercontent.com/pythonstock/stock/master/web/static/img/diff-n-bokeh.png)
+  ![image](https://raw.githubusercontent.com/pythonstock/stock/master/web/static/img/stock2-003.png)
  
 
 然后根据3个指标进行股票数据计算：
@@ -99,6 +104,28 @@ docker run -itd --name stock  \
     pythonstock/pythonstock:latest
 ```
 
+或者使用docker compose
+
+安装docker-compose
+https://www.runoob.com/docker/docker-compose.html
+
+```
+sudo curl -L "https://github.com/docker/compose/releases/download/1.27.4/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+sudo chmod +x /usr/local/bin/docker-compose
+```
+
+```
+docker-compose up -d
+```
+
+要想修改文件进行调试，增加当前目录映射，加入到stock里面：
+```yaml
+        volumes:
+            - "./jobs:/data/stock/jobs"
+            - "./libs:/data/stock/libs"
+            - "./web:/data/stock/web"
+```
+
 进入镜像：
 ```
 docker exec -it stock bash 
@@ -112,28 +139,12 @@ sh /data/stock/jobs/cron.daily/run_daily
 ### 本地访问端口
 
 > http://localhost:9999 股票系统 
->
-> http://localhost:8888 jupyter
 
-查看jupyter的密码：
 
-```
-docker exec -it stock bash 
-
-查看登录 token 问题：
-
-jupyter notebook list
-
-# 就可以看到 token 了，然后可以登录了。
-```
-
-### 1，股票系统设计
+### 股票系统设计
 
 相关博客资料：
-http://blog.csdn.net/freewebsys/article/category/7076584
-
-股票数据抓取框架使用TuShare。
-http://tushare.org/
+https://blog.csdn.net/freewebsys/category_9285317.html
 
 数据分析清洗使用pandas，numpy。
 http://pandas.pydata.org/
@@ -147,11 +158,8 @@ http://www.tornadoweb.org/en/stable/
 tornado web系统
 http://docs.pythontab.com/tornado/introduction-to-tornado/
 
-scikit-learn 文档，中文文档
-https://scikit-learn.org/stable/
-https://github.com/apachecn/sklearn-doc-zh/
 
-### 2，架构设计
+### 架构设计
 全系使用python实现。因为都是python的类库，互相之间调用方便。
 从数据抓取，数据处理，到数据展示数据运算都是python实现。
 
@@ -166,7 +174,7 @@ https://github.com/apachecn/sklearn-doc-zh/
 > supervisor 进程管理工具。
 
 
-### 3，应用部署
+### 应用部署
 
 需要mysql数据库启动。项目放到/data/stock 目录。
 ```
@@ -177,40 +185,128 @@ CREATE DATABASE IF NOT EXISTS `stock_data` CHARACTER SET utf8 COLLATE utf8_gener
 
 http://docs.sqlalchemy.org/en/latest/core/reflection.html
 
-### 3，web使用datatable显示报表
+## 更新日志
 
-通用数据配置，在 libs/stock_web_dic.py 配置数据之后，可以实现动态加载菜单，根据数据库表的行列显示数据。
+### 15 发布一个 2.0 的版本 - 2021-10-11
 
-不用一个表一个表进行开发，通用数据展示。
+构建基础版本 pythonstock/pythonstock:base-2021-09 在这个镜像的基础上使用 akshare 1.1.9
+折腾几个月，终于把2.0 弄好了，为啥弄2.0 因为之前发现 tushare的数据不能抓取了。需要注册成 pro 版本，但是pro 还有积分限制。
+诸多不便吧，于是换成了 akshare 库了，大改了，需要找到相关的新库。然后在些代码。
+删除掉了 ta-lib 安装了之后从来没有用到，jupyter 也是没有用。占空间影响下载心情。将镜像进一步减小。
 
-### 4，使用pandas处理重复数据
 
-https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.drop_duplicates.html
+### 14 bokeh 升级到 2.4.0 版本
 
-```python
-    data = ts.get_report_data(year, quarter)
-    # 处理重复数据，保存最新一条数据。
-    data.drop_duplicates(subset="code", keep="last")
+目录
+/usr/local/lib/python3.7/site-packages
+使用脚本进行升级。
+
+### 13 升级ak到v1.0.80 做好每日东方财经数据
+
+https://www.akshare.xyz/zh_CN/latest/data/stock/stock.html#id1
+限量: 单次返回所有 A 股上市公司的实时行情数据
+
+600开头的股票是上证A股，属于大盘股，其中6006开头的股票是最早上市的股票，
+6016开头的股票为大盘蓝筹股；900开头的股票是上证B股；
+000开头的股票是深证A股，001、002开头的股票也都属于深证A股，
+其中002开头的股票是深证A股中小企业股票；200开头的股票是深证B股；
+300开头的股票是创业板股票；400开头的股票是三板市场股票。
+
+过滤包括：600，6006，601，000，001，002，且不包括ST的股票数据。
+
+增加数据库utf8 参数 --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci 
+
+
+### 12 升级基础镜像到3.7 python，保障 akshare 0.6.10 以上版本支持
+
+发现 akshare 要求升级python 3.7 以上版本才可以，需要升级基础镜像。
+然后 akshare 就可以升级到 0.9.65 的最新版本了。
+新版本就可以按照日期进行查询，解决 TypeError: stock_zh_a_daily() got an unexpected keyword argument 'start_date' 这个问题了。
+
+
+### 11 使用 akshare 做相关股票数据抓取
+
+	
+中国的股市开盘时间为：每周一至周五的上午9:30——11：30，
+下午13:00——15:00。中国股市收盘时间为：每周一至周五的下午3点。
+
+实时行情数据
+接口: stock_zh_a_spot
+目标地址: http://vip.stock.finance.sina.com.cn/mkt/#hs_a
+描述: A 股数据是从新浪财经获取的数据, 重复运行本函数会被新浪暂时封 IP, 建议增加时间间隔
+限量: 单次返回所有 A 股上市公司的实时行情数据
+
+历史行情数据
+日频率
+接口: stock_zh_a_daily
+目标地址: https://finance.sina.com.cn/realstock/company/sh600006/nc.shtml(示例)
+描述: A 股数据是从新浪财经获取的数据, 历史数据按日频率更新; 注意其中的 sh689009 为 CDR, 请 通过 stock_zh_a_cdr_daily 接口获取
+限量: 单次返回指定 A 股上市公司指定日期间的历史行情日频率数据
+
+### 10 增加东方财经弹窗窗口、增加指标计算弹窗窗口
+
+发现了一个东方财富的页面，是给pc端用的。
+可以做个弹出框放到系统中。不进行调整了，长宽高可以做的小点。使用iframe引入界面。否则有跨域和样式问题。
+
+修改指标页面，改成窗口弹窗，做页面适配，方便查看。
+
+### 9，增加日历
+
+```
+古老的jquery 代码：
+		$( ".date-picker" ).datepicker({
+			language: 'zh-CN', //设置语言
+            format:"yyyymmdd",
+            showOtherMonths: true,
+            selectOtherMonths: false,
+            autoclose: true,
+			todayHighlight: true
+        });
+针对日期类型的搜索条件增加日历
+
 ```
 
-### 5，增加多字段排序
+https://www.bootcss.com/p/bootstrap-datetimepicker/
+不是使用jQuery的时间。
 
-> 1，点击是单个字段进行排序。
+### 8，发现MariaDb 版本不兼容问题，最后切换成mysql,使用 mysql:5.7 镜像
+
+相关数据执行只支持到10.5.4，版本可以使用，但是10.5.8 就有问题了。
+限制死了版本。看来软件也不能瞎升级，都用最新的有问题。可以解决数据问题。
+使用 mysql:5.7 镜像，更通用些，不折腾mariaDb了。
+
+
+### 7，解决 Bokeh JS兼容问题。
+
+> 升级 bokeh 到 2.1.1 版本
 >
-> 2，按照【shift】，点击多个，即可完成多字段排序。
+> https://pypi.org/project/bokeh/#files
 > 
-> 3，服务端分页排序。
->
-> 4，按照多个字段进行筛选查询。
+> 升级JS，因为 lib 包升级导致问题。
 
 
-### 6，开发环境执行
+
+### 6，升级 bokeh 到 2.1.1 版本
 
 ```
-sh startStock.sh 1
+
+https://pypi.org/project/bokeh/#files
+
 ```
 
-### 9，解决跑数据问题
+### 5，解决日志打印问题
+
+```
+
+配置 main.py 
+tornado.options.parse_command_line()
+
+然后启动配置参数：
+/usr/local/bin/python3 /data/stock/web/main.py -log_file_prefix=/data/logs/web.log
+
+```
+
+### 4，解决跑数据问题
 
 ```
 # 通过数据库链接 engine。
@@ -226,31 +322,30 @@ def conn():
 
 之前升级过代码，造成 db.cursor() 问题。
 
-### 8，解决日志打印问题
+### 3，增加多字段排序
 
-```
-
-配置 main.py 
-tornado.options.parse_command_line()
-
-然后启动配置参数：
-/usr/local/bin/python3 /data/stock/web/main.py -log_file_prefix=/data/logs/web.log
-
-```
-
-### 10，升级 bokeh 到 2.1.1 版本
-
-```
-
-https://pypi.org/project/bokeh/#files
-
-```
-
-### 11，解决 Bokeh JS兼容问题。
-
-> 升级 bokeh 到 2.1.1 版本
+> 1，点击是单个字段进行排序。
 >
-> https://pypi.org/project/bokeh/#files
+> 2，按照【shift】，点击多个，即可完成多字段排序。
 > 
-> 升级JS，因为 lib 包升级导致问题。
+> 3，服务端分页排序。
+>
+> 4，按照多个字段进行筛选查询。
+
+### 2，使用pandas处理重复数据
+
+https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.drop_duplicates.html
+
+```python
+    data = get_data(year, quarter)
+    # 处理重复数据，保存最新一条数据。
+    data.drop_duplicates(subset="code", keep="last")
+```
+
+### 1，web使用datatable显示报表
+
+通用数据配置，在 libs/stock_web_dic.py 配置数据之后，可以实现动态加载菜单，根据数据库表的行列显示数据。
+
+不用一个表一个表进行开发，通用数据展示。
+
 
